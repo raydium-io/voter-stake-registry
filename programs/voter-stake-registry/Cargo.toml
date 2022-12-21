@@ -17,7 +17,7 @@ no-idl = []
 cpi = ["no-entrypoint"]
 default = []
 localnet = []
-test-bpf = []
+test-sbf = []
 
 [dependencies]
 # a) for deployment use these
