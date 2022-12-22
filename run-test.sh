@@ -2,4 +2,4 @@
 
 set -euo pipefail
 
-cargo test-bpf
+cargo test-sbf

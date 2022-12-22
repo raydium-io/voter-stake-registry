@@ -1,3 +1,5 @@
+#![allow(clippy::result_large_err)]
+
 use anchor_lang::prelude::*;
 use instructions::*;
 use state::*;
@@ -120,6 +122,7 @@ pub mod voter_stake_registry {
         instructions::withdraw(ctx, deposit_entry_index, amount)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn grant(
         ctx: Context<Grant>,
         voter_bump: u8,

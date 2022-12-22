@@ -1,3 +1,5 @@
+#![cfg(feature = "test-sbf")]
+
 use anchor_spl::token::TokenAccount;
 use program_test::*;
 use solana_program_test::*;
