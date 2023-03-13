@@ -1,6 +1,7 @@
 use crate::error::*;
 use crate::state::*;
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::sysvar::instructions as tx_instructions;
 use anchor_spl::token::{self, Token, TokenAccount};
 
 #[derive(Accounts)]
@@ -53,6 +54,9 @@ pub struct Withdraw<'info> {
     pub destination: Box<Account<'info, TokenAccount>>,
 
     pub token_program: Program<'info, Token>,
+    /// CHECK: Address constraint is set
+    #[account(address = tx_instructions::ID)]
+    pub instructions: UncheckedAccount<'info>,
 }
 
 impl<'info> Withdraw<'info> {
@@ -67,12 +71,25 @@ impl<'info> Withdraw<'info> {
     }
 }
 
+// Staking program
+const CALLER_PROGRAM_ID: Pubkey =
+    solana_program::pubkey!("EBHAeKU3VK1xgAL1LJxkzJjtPoyMv7pnuu5aqimALvny");
+// VeRay mint key
+const VERAY_MINT: Pubkey = solana_program::pubkey!("8u8YnwtTovHHieM3DM5pNNAV7WHZuMPfsuNnkY41yRFN");
 /// Withdraws tokens from a deposit entry, if they are unlocked according
 /// to the deposit's vesting schedule.
 ///
 /// `deposit_entry_index`: The deposit entry to withdraw from.
 /// `amount` is in units of the native currency being withdrawn.
 pub fn withdraw(ctx: Context<Withdraw>, deposit_entry_index: u8, amount: u64) -> Result<()> {
+    // Withdraw must be called from CPI by staking program.
+    // The goal is to make sure all the veRay are burned by the staking program and there is no veRay in the user's wallet.
+    // Note: Ray is no need check.
+    if ctx.accounts.vault.mint == VERAY_MINT {
+        let ixns = ctx.accounts.instructions.to_account_info();
+        let current_ix = tx_instructions::get_instruction_relative(0, &ixns).unwrap();
+        require_keys_eq!(current_ix.program_id, CALLER_PROGRAM_ID);
+    }
     {
         // Transfer the tokens to withdraw.
         let voter = &mut ctx.accounts.voter.load()?;
