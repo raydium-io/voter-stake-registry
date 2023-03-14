@@ -54,9 +54,9 @@ pub struct Withdraw<'info> {
     pub destination: Box<Account<'info, TokenAccount>>,
 
     pub token_program: Program<'info, Token>,
-    /// CHECK: Address constraint is set
-    #[account(address = tx_instructions::ID)]
-    pub instructions: UncheckedAccount<'info>,
+    // CHECK: Address constraint is set as remaing account to check
+    // #[account(address = tx_instructions::ID)]
+    // pub instructions: UncheckedAccount<'info>,
 }
 
 impl<'info> Withdraw<'info> {
@@ -86,8 +86,11 @@ pub fn withdraw(ctx: Context<Withdraw>, deposit_entry_index: u8, amount: u64) ->
     // The goal is to make sure all the veRay are burned by the staking program and there is no veRay in the user's wallet.
     // Note: Ray is no need check.
     if ctx.accounts.vault.mint == VERAY_MINT {
-        let ixns = ctx.accounts.instructions.to_account_info();
-        let current_ix = tx_instructions::get_instruction_relative(0, &ixns).unwrap();
+        let remaining_accounts_iter = &mut ctx.remaining_accounts.iter();
+        let instructions_account = next_account_info(remaining_accounts_iter)?;
+        require_keys_eq!(*instructions_account.key, tx_instructions::ID);
+        let current_ix =
+            tx_instructions::get_instruction_relative(0, &instructions_account).unwrap();
         require_keys_eq!(current_ix.program_id, CALLER_PROGRAM_ID);
     }
     {
