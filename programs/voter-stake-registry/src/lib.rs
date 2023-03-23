@@ -20,7 +20,7 @@ pub mod restricted_id {
     use solana_program::declare_id;
     pub mod voting_mint {
         use super::*;
-        declare_id!("8u8YnwtTovHHieM3DM5pNNAV7WHZuMPfsuNnkY41yRFN");
+        declare_id!("Zx4snGmz8x5ygqSeoRsHUTd5iRP1LQT8zj5dLXqJyA7");
     }
 
     pub mod staking_program {
