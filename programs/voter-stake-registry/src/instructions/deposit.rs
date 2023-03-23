@@ -2,6 +2,8 @@ use crate::error::*;
 use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount};
+use solana_program::program::invoke;
+use solana_program::sysvar;
 
 #[derive(Accounts)]
 pub struct Deposit<'info> {
@@ -31,6 +33,13 @@ pub struct Deposit<'info> {
     pub deposit_authority: Signer<'info>,
 
     pub token_program: Program<'info, Token>,
+    // remaining account
+    // staker_info
+    // staking_pool
+    // voting_mint
+    // voting_mint_authority
+    // staking_program
+    // instruction_program
 }
 
 impl<'info> Deposit<'info> {
@@ -61,9 +70,61 @@ impl<'info> Deposit<'info> {
 /// Example: 20 tokens are deposited to a three-day vesting deposit entry
 /// that started 36 hours ago. That means 10 extra tokens will vest in 12 hours
 /// and another 10 in 36 hours.
-pub fn deposit(ctx: Context<Deposit>, deposit_entry_index: u8, amount: u64) -> Result<()> {
+pub fn deposit<'a, 'b, 'c, 'info>(
+    ctx: Context<'a, 'b, 'c, 'info, Deposit<'info>>,
+    deposit_entry_index: u8,
+    amount: u64,
+) -> Result<()> {
     if amount == 0 {
         return Ok(());
+    }
+
+    if ctx.accounts.vault.mint == crate::restricted_id::voting_mint::id() {
+        require_eq!(ctx.remaining_accounts.len(), 6);
+        let remaining_accounts_iter = &mut ctx.remaining_accounts.iter();
+        let staker_info = remaining_accounts_iter.next().unwrap();
+        let staking_pool_info = remaining_accounts_iter.next().unwrap();
+        let voting_mint_info = remaining_accounts_iter.next().unwrap();
+        let voting_mint_authority_info = remaining_accounts_iter.next().unwrap();
+        let staking_program = remaining_accounts_iter.next().unwrap();
+        let instruction_program = remaining_accounts_iter.next().unwrap();
+
+        require_keys_eq!(
+            voting_mint_info.key(),
+            crate::restricted_id::voting_mint::id()
+        );
+        require_keys_eq!(
+            staking_program.key(),
+            crate::restricted_id::staking_program::id()
+        );
+        require_keys_eq!(instruction_program.key(), sysvar::instructions::id());
+
+        let user_vote_token_info = ctx.accounts.deposit_token.to_account_info();
+        let voter_authority_info = ctx.accounts.deposit_authority.to_account_info();
+
+        let mint_ix = raydium_staking::instruction::mint_vote_token(
+            staking_program.key,
+            voting_mint_authority_info.key,
+            staking_pool_info.key,
+            voting_mint_info.key,
+            staker_info.key,
+            user_vote_token_info.key,
+            voter_authority_info.key,
+            amount,
+        )?;
+
+        invoke(
+            &mint_ix,
+            &[
+                voting_mint_authority_info.clone(),
+                staking_pool_info.clone(),
+                voting_mint_info.clone(),
+                staker_info.clone(),
+                user_vote_token_info.clone(),
+                voter_authority_info.clone(),
+            ],
+        )?;
+        ctx.accounts.deposit_token.reload()?;
     }
 
     let registrar = &ctx.accounts.registrar.load()?;

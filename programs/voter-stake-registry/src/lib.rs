@@ -16,6 +16,18 @@ extern crate static_assertions;
 // The program address.
 declare_id!("AddiRgs7RFtYGVYHSzQWDkiXgeDxRL3eEcmjunUgcoCH");
 
+pub mod restricted_id {
+    use solana_program::declare_id;
+    pub mod voting_mint {
+        use super::*;
+        declare_id!("8u8YnwtTovHHieM3DM5pNNAV7WHZuMPfsuNnkY41yRFN");
+    }
+
+    pub mod staking_program {
+        use super::*;
+        declare_id!("EBHAeKU3VK1xgAL1LJxkzJjtPoyMv7pnuu5aqimALvny");
+    }
+}
 /// # Introduction
 ///
 /// The governance registry is an "addin" to the SPL governance program that
@@ -114,11 +126,19 @@ pub mod voter_stake_registry {
         )
     }
 
-    pub fn deposit(ctx: Context<Deposit>, deposit_entry_index: u8, amount: u64) -> Result<()> {
+    pub fn deposit<'a, 'b, 'c, 'info>(
+        ctx: Context<'a, 'b, 'c, 'info, Deposit<'info>>,
+        deposit_entry_index: u8,
+        amount: u64,
+    ) -> Result<()> {
         instructions::deposit(ctx, deposit_entry_index, amount)
     }
 
-    pub fn withdraw(ctx: Context<Withdraw>, deposit_entry_index: u8, amount: u64) -> Result<()> {
+    pub fn withdraw<'a, 'b, 'c, 'info>(
+        ctx: Context<'a, 'b, 'c, 'info, Withdraw<'info>>,
+        deposit_entry_index: u8,
+        amount: u64,
+    ) -> Result<()> {
         instructions::withdraw(ctx, deposit_entry_index, amount)
     }
 

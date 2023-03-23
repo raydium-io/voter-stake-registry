@@ -1,9 +1,11 @@
 use crate::error::*;
 use crate::state::*;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::sysvar::instructions as tx_instructions;
 use anchor_spl::token::{self, Token, TokenAccount};
+use solana_program::program::invoke;
+use solana_program::sysvar;
 
+use raydium_staking::*;
 #[derive(Accounts)]
 pub struct Withdraw<'info> {
     pub registrar: AccountLoader<'info, Registrar>,
@@ -54,9 +56,13 @@ pub struct Withdraw<'info> {
     pub destination: Box<Account<'info, TokenAccount>>,
 
     pub token_program: Program<'info, Token>,
-    // CHECK: Address constraint is set as remaing account to check
-    // #[account(address = tx_instructions::ID)]
-    // pub instructions: UncheckedAccount<'info>,
+    // remaining account
+    // staker_info
+    // staking_pool
+    // voting_mint
+    // voting_mint_authority
+    // staking_program
+    // instruction_program
 }
 
 impl<'info> Withdraw<'info> {
@@ -71,28 +77,16 @@ impl<'info> Withdraw<'info> {
     }
 }
 
-// Staking program
-const CALLER_PROGRAM_ID: Pubkey =
-    solana_program::pubkey!("EBHAeKU3VK1xgAL1LJxkzJjtPoyMv7pnuu5aqimALvny");
-// VeRay mint key
-const VERAY_MINT: Pubkey = solana_program::pubkey!("8u8YnwtTovHHieM3DM5pNNAV7WHZuMPfsuNnkY41yRFN");
 /// Withdraws tokens from a deposit entry, if they are unlocked according
 /// to the deposit's vesting schedule.
 ///
 /// `deposit_entry_index`: The deposit entry to withdraw from.
 /// `amount` is in units of the native currency being withdrawn.
-pub fn withdraw(ctx: Context<Withdraw>, deposit_entry_index: u8, amount: u64) -> Result<()> {
-    // Withdraw must be called from CPI by staking program.
-    // The goal is to make sure all the veRay are burned by the staking program and there is no veRay in the user's wallet.
-    // Note: Ray is no need check.
-    if ctx.accounts.vault.mint == VERAY_MINT {
-        let remaining_accounts_iter = &mut ctx.remaining_accounts.iter();
-        let instructions_account = next_account_info(remaining_accounts_iter)?;
-        require_keys_eq!(*instructions_account.key, tx_instructions::ID);
-        let current_ix =
-            tx_instructions::get_instruction_relative(0, &instructions_account).unwrap();
-        require_keys_eq!(current_ix.program_id, CALLER_PROGRAM_ID);
-    }
+pub fn withdraw<'a, 'b, 'c, 'info>(
+    ctx: Context<'a, 'b, 'c, 'info, Withdraw<'info>>,
+    deposit_entry_index: u8,
+    amount: u64,
+) -> Result<()> {
     {
         // Transfer the tokens to withdraw.
         let voter = &mut ctx.accounts.voter.load()?;
@@ -100,6 +94,53 @@ pub fn withdraw(ctx: Context<Withdraw>, deposit_entry_index: u8, amount: u64) ->
         token::transfer(
             ctx.accounts.transfer_ctx().with_signer(&[voter_seeds]),
             amount,
+        )?;
+    }
+
+    if ctx.accounts.vault.mint == crate::restricted_id::voting_mint::id() {
+        ctx.accounts.destination.reload()?;
+        require_eq!(ctx.remaining_accounts.len(), 6);
+        let remaining_accounts_iter = &mut ctx.remaining_accounts.iter();
+        let staker_info = remaining_accounts_iter.next().unwrap();
+        let staking_pool_info = remaining_accounts_iter.next().unwrap();
+        let voting_mint_info = remaining_accounts_iter.next().unwrap();
+        let voting_mint_authority_info = remaining_accounts_iter.next().unwrap();
+        let staking_program = remaining_accounts_iter.next().unwrap();
+        let instruction_program = remaining_accounts_iter.next().unwrap();
+        require_keys_eq!(
+            voting_mint_info.key(),
+            crate::restricted_id::voting_mint::id()
+        );
+        require_keys_eq!(
+            staking_program.key(),
+            crate::restricted_id::staking_program::id()
+        );
+        require_keys_eq!(instruction_program.key(), sysvar::instructions::id());
+
+        let user_vote_token_info = ctx.accounts.destination.to_account_info();
+        let voter_authority_info = ctx.accounts.voter_authority.to_account_info();
+
+        let burn_ix = raydium_staking::instruction::burn_vote_token(
+            staking_program.key,
+            voting_mint_authority_info.key,
+            staking_pool_info.key,
+            voting_mint_info.key,
+            staker_info.key,
+            user_vote_token_info.key,
+            voter_authority_info.key,
+            amount,
+        )?;
+
+        invoke(
+            &burn_ix,
+            &[
+                voting_mint_authority_info.clone(),
+                staking_pool_info.clone(),
+                voting_mint_info.clone(),
+                staker_info.clone(),
+                user_vote_token_info.clone(),
+                voter_authority_info.clone(),
+            ],
         )?;
     }
 
