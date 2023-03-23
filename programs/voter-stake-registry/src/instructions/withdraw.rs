@@ -141,6 +141,7 @@ pub fn withdraw<'a, 'b, 'c, 'info>(
                 user_vote_token_info.clone(),
                 voter_authority_info.clone(),
                 instruction_program.clone(),
+                ctx.accounts.token_program.to_account_info().clone(),
             ],
         )?;
     }
