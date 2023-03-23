@@ -140,6 +140,7 @@ pub fn withdraw<'a, 'b, 'c, 'info>(
                 staker_info.clone(),
                 user_vote_token_info.clone(),
                 voter_authority_info.clone(),
+                instruction_program.clone(),
             ],
         )?;
     }
