@@ -14,18 +14,18 @@ pub mod state;
 extern crate static_assertions;
 
 // The program address.
-declare_id!("AddiRgs7RFtYGVYHSzQWDkiXgeDxRL3eEcmjunUgcoCH");
+declare_id!("VoteWPk9yyGmkX4U77nEWRJWpcc8kUfrPoghxENpstL");
 
 pub mod restricted_id {
     use solana_program::declare_id;
     pub mod voting_mint {
         use super::*;
-        declare_id!("Zx4snGmz8x5ygqSeoRsHUTd5iRP1LQT8zj5dLXqJyA7");
+        declare_id!("BacSv6jaGzsJ5eK9XvDR4ktXLcnhuKvK6jKGHymgrZWZ");
     }
 
     pub mod staking_program {
         use super::*;
-        declare_id!("EBHAeKU3VK1xgAL1LJxkzJjtPoyMv7pnuu5aqimALvny");
+        declare_id!("EhhTKczWMGQt46ynNeRX1WfeagwwJd7ufHvCDjRxjo5Q");
     }
 }
 /// # Introduction
