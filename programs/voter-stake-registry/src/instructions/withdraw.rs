@@ -97,6 +97,48 @@ pub fn withdraw<'a, 'b, 'c, 'info>(
         )?;
     }
 
+    // Load the accounts.
+    let registrar = &ctx.accounts.registrar.load()?;
+    let voter = &mut ctx.accounts.voter.load_mut()?;
+
+    // Get the exchange rate for the token being withdrawn.
+    let mint_idx = registrar.voting_mint_config_index(ctx.accounts.destination.mint)?;
+
+    // Governance may forbid withdraws, for example when engaged in a vote.
+    // Not applicable for tokens that don't contribute to voting power.
+    if registrar.voting_mints[mint_idx].grants_vote_weight() {
+        let token_owner_record = voter.load_token_owner_record(
+            &ctx.accounts.token_owner_record.to_account_info(),
+            registrar,
+        )?;
+        token_owner_record.assert_can_withdraw_governing_tokens()?;
+    }
+
+    // Get the deposit being withdrawn from.
+    let curr_ts = registrar.clock_unix_timestamp();
+    let deposit_entry = voter.active_deposit_mut(deposit_entry_index)?;
+    require_gte!(
+        deposit_entry.amount_unlocked(curr_ts),
+        amount,
+        VsrError::InsufficientUnlockedTokens
+    );
+    require_eq!(
+        mint_idx,
+        deposit_entry.voting_mint_config_idx as usize,
+        VsrError::InvalidMint
+    );
+
+    // Bookkeeping for withdrawn funds.
+    require_gte!(
+        deposit_entry.amount_deposited_native,
+        amount,
+        VsrError::InternalProgramError
+    );
+    deposit_entry.amount_deposited_native = deposit_entry
+        .amount_deposited_native
+        .checked_sub(amount)
+        .unwrap();
+
     if ctx.accounts.vault.mint == crate::restricted_id::voting_mint::id() {
         ctx.accounts.destination.reload()?;
         require_eq!(ctx.remaining_accounts.len(), 6);
@@ -145,49 +187,6 @@ pub fn withdraw<'a, 'b, 'c, 'info>(
             ],
         )?;
     }
-
-    // Load the accounts.
-    let registrar = &ctx.accounts.registrar.load()?;
-    let voter = &mut ctx.accounts.voter.load_mut()?;
-
-    // Get the exchange rate for the token being withdrawn.
-    let mint_idx = registrar.voting_mint_config_index(ctx.accounts.destination.mint)?;
-
-    // Governance may forbid withdraws, for example when engaged in a vote.
-    // Not applicable for tokens that don't contribute to voting power.
-    if registrar.voting_mints[mint_idx].grants_vote_weight() {
-        let token_owner_record = voter.load_token_owner_record(
-            &ctx.accounts.token_owner_record.to_account_info(),
-            registrar,
-        )?;
-        token_owner_record.assert_can_withdraw_governing_tokens()?;
-    }
-
-    // Get the deposit being withdrawn from.
-    let curr_ts = registrar.clock_unix_timestamp();
-    let deposit_entry = voter.active_deposit_mut(deposit_entry_index)?;
-    require_gte!(
-        deposit_entry.amount_unlocked(curr_ts),
-        amount,
-        VsrError::InsufficientUnlockedTokens
-    );
-    require_eq!(
-        mint_idx,
-        deposit_entry.voting_mint_config_idx as usize,
-        VsrError::InvalidMint
-    );
-
-    // Bookkeeping for withdrawn funds.
-    require_gte!(
-        deposit_entry.amount_deposited_native,
-        amount,
-        VsrError::InternalProgramError
-    );
-    deposit_entry.amount_deposited_native = deposit_entry
-        .amount_deposited_native
-        .checked_sub(amount)
-        .unwrap();
-
     msg!(
         "Withdrew amount {} at deposit index {} with lockup kind {:?} and {} seconds left",
         amount,
