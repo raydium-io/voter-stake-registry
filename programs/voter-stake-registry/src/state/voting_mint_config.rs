@@ -9,7 +9,7 @@ const SCALED_FACTOR_BASE: u64 = 1_000_000_000;
 ///
 /// See documentation of configure_voting_mint for details on how
 /// native token amounts convert to vote weight.
-#[zero_copy]
+#[account(zero_copy(unsafe))]
 #[derive(Default)]
 pub struct VotingMintConfig {
     /// Mint for this entry.

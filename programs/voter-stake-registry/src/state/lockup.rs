@@ -26,7 +26,7 @@ pub const MAX_LOCKUP_PERIODS: u32 = 365 * 200;
 
 pub const MAX_LOCKUP_IN_FUTURE_SECS: i64 = 100 * 365 * 24 * 60 * 60;
 
-#[zero_copy]
+#[account(zero_copy(unsafe))]
 pub struct Lockup {
     /// Start of the lockup.
     ///

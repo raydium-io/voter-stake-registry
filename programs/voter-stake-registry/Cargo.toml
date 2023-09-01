@@ -21,8 +21,10 @@ test-sbf = []
 
 [dependencies]
 # a) for deployment use these
-anchor-lang = { version = "0.26.0", features = ["init-if-needed"] }
-anchor-spl = { version = "0.26.0" }
+#anchor-lang = { version = "0.26.0", features = ["init-if-needed"] }
+#anchor-spl = { version = "0.26.0" }
+anchor-spl = { git = " https://github.com/acheroncrypto/anchor", branch = "replace-pubsubclienterror-unexpectedmessage" }
+anchor-lang = {git = " https://github.com/acheroncrypto/anchor", branch = "replace-pubsubclienterror-unexpectedmessage", features = ["init-if-needed"]}
 # b) while testing, use below dependencies for debugging instead of above ones
 # anchor-lang = { git = "https://github.com/microwavedcola1/anchor.git", branch = "master-debug" }
 # anchor-spl = { git = "https://github.com/microwavedcola1/anchor.git", branch = "master-debug", features = ["governance"]}
